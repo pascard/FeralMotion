@@ -2,8 +2,9 @@ import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef } from 
 import { drawTrackingOverlay, drawPins, drawExportFrame } from '../engine/renderer';
 import { compose } from '../engine/stabilizer';
 import { Affine, IDENTITY, Point, Rect, TrackMode, VideoMeta } from '../engine/types';
+import { GradeRenderer } from '../color/GradeRenderer';
 import { gradeToCssFilter } from '../color/cssFilter';
-import { GradeParams, NEUTRAL } from '../color/types';
+import { GradeParams, isNeutral } from '../color/types';
 
 export interface ViewerHandle {
   resetView: () => void;
@@ -77,11 +78,16 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer(
   const radiiRef = useRef(radii);
   const cropViewRef = useRef(cropView);
   const providersRef = useRef(providers);
+  const gradeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const graderRef = useRef<GradeRenderer | null>(null);
+  const gradeRef = useRef<GradeParams | undefined>(grade);
+  const frameRef = useRef(0);
   overlayRef.current = overlay;
   cropViewRef.current = cropView;
   pointsRef.current = points;
   radiiRef.current = radii;
   providersRef.current = providers;
+  gradeRef.current = grade;
 
   const pointers = useRef<Map<number, Point>>(new Map());
   const gesture = useRef({
@@ -124,13 +130,42 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer(
     video.style.height = `${meta.height}px`;
   }, [video, meta.width, meta.height]);
 
-  /* apply the grade as a CSS filter so the look shows in this preview too */
+  /* Faithful grade overlay: a WebGL canvas laid exactly over the native video,
+   * textured from the video frame and run through the SAME shader as the export
+   * (so the preview is WYSIWYG, not a CSS approximation). Falls back to a CSS
+   * filter on the native video if WebGL2 is unavailable. */
   useEffect(() => {
-    video.style.filter = gradeToCssFilter(grade ?? NEUTRAL);
+    const container = containerRef.current;
+    if (!container) return;
+    const gc = document.createElement('canvas');
+    gc.style.position = 'absolute';
+    gc.style.left = '0';
+    gc.style.top = '0';
+    gc.style.transformOrigin = '0 0';
+    gc.style.willChange = 'transform';
+    gc.style.pointerEvents = 'none';
+    gc.style.display = 'none';
+    gc.width = meta.width;
+    gc.height = meta.height;
+    gc.style.width = `${meta.width}px`;
+    gc.style.height = `${meta.height}px`;
+    // sit just above the native video, below the overlay (markers) canvas
+    container.insertBefore(gc, canvasRef.current);
+    gradeCanvasRef.current = gc;
+    try {
+      graderRef.current = new GradeRenderer(gc);
+    } catch {
+      graderRef.current = null; // CSS-filter fallback handled in render()
+    }
     return () => {
+      graderRef.current?.dispose();
+      graderRef.current = null;
+      gc.remove();
+      gradeCanvasRef.current = null;
+      video.style.opacity = '1';
       video.style.filter = 'none';
     };
-  }, [video, grade]);
+  }, [video, meta.width, meta.height]);
 
   const layout = useCallback(() => {
     const rect = containerRef.current!.getBoundingClientRect();
@@ -190,7 +225,34 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer(
     const viewCss: Affine = [baseCss, 0, originXcss, 0, baseCss, originYcss];
     const stab = ov === 'stabilized' && prov?.stabilize ? prov.stabilize() : IDENTITY;
     const m = compose(stab, viewCss); // apply stabilize (source->output) then view
-    video.style.transform = `matrix(${m[0]}, ${m[3]}, ${m[1]}, ${m[4]}, ${m[2]}, ${m[5]})`;
+    const matrix = `matrix(${m[0]}, ${m[3]}, ${m[1]}, ${m[4]}, ${m[2]}, ${m[5]})`;
+    video.style.transform = matrix;
+
+    // Faithful grade: render the video frame through the export shader onto the
+    // overlay canvas and place it exactly over the (now hidden) native video.
+    const g = gradeRef.current;
+    const gc = gradeCanvasRef.current;
+    const grader = graderRef.current;
+    if (gc) {
+      const neutral = !g || isNeutral(g);
+      if (neutral || video.readyState < 2) {
+        gc.style.display = 'none';
+        video.style.opacity = '1';
+        video.style.filter = !neutral && !grader && g ? gradeToCssFilter(g) : 'none';
+      } else if (grader) {
+        // full-frame preview: drop letterbox (the crop box conveys framing)
+        const pg = g.letterbox ? { ...g, letterbox: 0 } : g;
+        grader.render(video, meta.width, meta.height, pg, frameRef.current++);
+        gc.style.transform = matrix;
+        gc.style.display = 'block';
+        video.style.opacity = '0';
+        video.style.filter = 'none';
+      } else {
+        gc.style.display = 'none';
+        video.style.opacity = '1';
+        video.style.filter = gradeToCssFilter(g);
+      }
+    }
 
     // crop-view = final cropped result fills the view, no overlays drawn
     if (cropViewRef.current) return;

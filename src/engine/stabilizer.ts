@@ -48,7 +48,13 @@ function shift1D(lo: number, hi: number, size: number): number {
  * this returns the transform unchanged (full stabilization). If the crop is
  * larger, the transform is nudged on the frames where the movement would reveal
  * an edge — the stabilization "hits the border" instead of going off-frame.
- * Works for any affine (translation / rotation / scale).
+ *
+ * Works for any affine. Crucially, with a 2-point similarity the frame is
+ * ROTATED, so the crop back-projects into source space as a rotated quad. A
+ * translation alone can't contain it once rotation makes its bounding box wider
+ * or taller than the source — so we first shrink the sampled region (zoom in a
+ * touch) about its centroid until it fits, then translate. That keeps the
+ * rotated frame from ever poking past the video edges.
  */
 export function constrainToCrop(S: Affine, crop: Rect, w: number, h: number): Affine {
   const Minv = invertAffine(S);
@@ -58,23 +64,51 @@ export function constrainToCrop(S: Affine, crop: Rect, w: number, h: number): Af
     { x: crop.x + crop.w, y: crop.y + crop.h },
     { x: crop.x, y: crop.y + crop.h },
   ];
+  // back-project the crop into source space (rotated/scaled quad for 2 points)
   let sxmin = Infinity;
   let sxmax = -Infinity;
   let symin = Infinity;
   let symax = -Infinity;
+  let gx = 0;
+  let gy = 0;
   for (const c of corners) {
     const s = applyAffine(Minv, c);
     sxmin = Math.min(sxmin, s.x);
     sxmax = Math.max(sxmax, s.x);
     symin = Math.min(symin, s.y);
     symax = Math.max(symax, s.y);
+    gx += s.x;
+    gy += s.y;
   }
-  const dx = shift1D(sxmin, sxmax, w);
-  const dy = shift1D(symin, symax, h);
-  if (dx === 0 && dy === 0) return S;
-  // shift the inverse sampling so the crop maps back inside the source, then
-  // re-invert to get the corrected forward transform.
-  const Minv2: Affine = [Minv[0], Minv[1], Minv[2] + dx, Minv[3], Minv[4], Minv[5] + dy];
+  gx /= 4;
+  gy /= 4;
+
+  // If rotation/scale blew the back-projected crop past the source size, a
+  // translation can't save it — shrink it about its centroid (= zoom in) until
+  // its bounding box fits, leaving a hair of margin so no edge line shows.
+  const exX = sxmax - sxmin;
+  const exY = symax - symin;
+  const f = Math.min(1, exX > w ? (w - 1) / exX : 1, exY > h ? (h - 1) / exY : 1);
+
+  // extents after the (possible) shrink, then the translation that seats them
+  const nsxmin = gx + (sxmin - gx) * f;
+  const nsxmax = gx + (sxmax - gx) * f;
+  const nsymin = gy + (symin - gy) * f;
+  const nsymax = gy + (symax - gy) * f;
+  const dx = shift1D(nsxmin, nsxmax, w);
+  const dy = shift1D(nsymin, nsymax, h);
+  if (f === 1 && dx === 0 && dy === 0) return S;
+
+  // corrected inverse sampling: Minv'(C) = f·Minv(C) + ((1-f)·G + d),
+  // i.e. scale about the centroid G by f then translate by (dx,dy).
+  const Minv2: Affine = [
+    Minv[0] * f,
+    Minv[1] * f,
+    Minv[2] * f + (1 - f) * gx + dx,
+    Minv[3] * f,
+    Minv[4] * f,
+    Minv[5] * f + (1 - f) * gy + dy,
+  ];
   return invertAffine(Minv2);
 }
 

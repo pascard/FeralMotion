@@ -104,6 +104,7 @@ async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
   const w = renderer.outW;
   const h = renderer.outH;
 
+  try {
   // AUDIO STRATEGY (best → worst):
   //  1) copy the original AAC track verbatim via mp4box (no re-encode; the only
   //     reliable path on iOS — no AudioEncoder/captureStream needed),
@@ -198,6 +199,9 @@ async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
     mime: 'video/mp4',
     engine: 'webcodecs',
   };
+  } finally {
+    renderer.dispose(); // free the WebGL2 context (scarce — never leak)
+  }
 }
 
 function waitQueue(encoder: any): Promise<void> {
@@ -338,6 +342,7 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
   const h = renderer.outH;
   const canvas = renderer.canvas;
 
+  try {
   const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
     ? 'video/mp4;codecs=avc1'
     : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
@@ -412,4 +417,7 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
   const blob = await done;
   onProgress?.(1, 'Terminé');
   return { blob, ext, mime, engine: 'mediarecorder' };
+  } finally {
+    renderer.dispose(); // free the WebGL2 context (scarce — never leak)
+  }
 }
