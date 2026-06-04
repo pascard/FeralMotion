@@ -2,7 +2,24 @@ import { solveStabilize, smoothTrajectory } from './stabilizer';
 import { PointTracker } from './tracker';
 import { FrameGrabber, seekTo } from './videoFrames';
 import { getPreset, StabPreset, DEFAULT_PRECISION } from './presets';
-import { Affine, FrameTrack, Point, TrackMode, VideoMeta } from './types';
+import { Affine, FrameTrack, IDENTITY, Point, TrackMode, VideoMeta } from './types';
+
+/** A trivial result with no stabilization (identity transform), used for the
+ * Color-only path: grading/exporting a clip that wasn't stabilized. */
+export function identityResult(meta: VideoMeta): AnalysisResult {
+  return {
+    mode: 'one',
+    ref: [],
+    start: 0,
+    end: meta.duration,
+    fps: meta.fps,
+    raw: [],
+    times: [0],
+    oks: [true],
+    smoothing: 0,
+    tracks: [{ time: 0, points: [], ok: true, stabilize: [...IDENTITY] as Affine }],
+  };
+}
 
 export interface AnalysisResult {
   mode: TrackMode;

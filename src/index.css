@@ -182,6 +182,8 @@ textarea {
   overflow: hidden;
   background: #000;
   display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .viewer-stage {
   position: absolute;
@@ -346,6 +348,57 @@ textarea {
 .controls.column {
   flex-direction: column;
   align-items: stretch;
+}
+.controls.wrap {
+  flex-wrap: wrap;
+}
+.color-btn {
+  background: linear-gradient(135deg, #6b8cff, #b86bff);
+  color: #0b0b14;
+  border: none;
+}
+.ghost.color-btn {
+  background: rgba(123, 140, 255, 0.16);
+  border: 1px solid #6b8cff;
+  color: #c9d2ff;
+}
+
+/* color editor */
+.color-canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  background: #000;
+}
+.color-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px;
+}
+.color-transport input {
+  flex: 1;
+  accent-color: var(--accent-2);
+}
+.color-panel {
+  max-height: 44vh;
+  overflow-y: auto;
+}
+.color-sliders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+@media (max-width: 560px) {
+  .color-sliders {
+    grid-template-columns: 1fr;
+  }
+}
+.color-panel .slider-row > span:first-child {
+  min-width: 78px;
+}
+.color-panel input[type='range'] {
+  accent-color: var(--accent-2);
 }
 .seg {
   display: flex;

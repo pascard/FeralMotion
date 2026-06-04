@@ -1,9 +1,11 @@
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { AnalysisResult, trackAt } from './analysis';
-import { compose, constrainToCrop } from './stabilizer';
+import { constrainToCrop } from './stabilizer';
 import { extractAacTrack, muxCopiedAudio, CopiedAudio } from './audioRemux';
 import { seekTo } from './videoFrames';
-import { Affine, Rect, VideoMeta } from './types';
+import { Rect, VideoMeta } from './types';
+import { makeComposite } from '../color/composite';
+import { GradeParams, NEUTRAL } from '../color/types';
 
 export interface ExportParams {
   video: HTMLVideoElement;
@@ -11,6 +13,8 @@ export interface ExportParams {
   result: AnalysisResult;
   /** chosen export crop rect, in source/output pixels */
   crop: Rect;
+  /** color grade applied on top of the stabilized + cropped frame */
+  grade?: GradeParams;
   /** export time range (defaults to the analyzed range) */
   start?: number;
   end?: number;
@@ -18,33 +22,6 @@ export interface ExportParams {
   fileBuffer?: ArrayBuffer;
   onProgress?: (ratio: number, stage: string) => void;
   signal?: AbortSignal;
-}
-
-/** Renders the stabilized + cropped frame directly into an output canvas sized
- * to the crop, in a SINGLE resample (stabilize warp and crop scale are composed
- * into one transform) — sharper than warping then re-cropping. */
-function makeFrameRenderer(meta: VideoMeta, crop: Rect) {
-  const outW = Math.max(2, Math.round(crop.w) - (Math.round(crop.w) % 2));
-  const outH = Math.max(2, Math.round(crop.h) - (Math.round(crop.h) % 2));
-  const out = document.createElement('canvas');
-  out.width = outW;
-  out.height = outH;
-  const ctx = out.getContext('2d', { alpha: false })!;
-  const sx = outW / crop.w;
-  const sy = outH / crop.h;
-  // maps output(full) space -> out canvas: translate by -crop origin, then scale
-  const cropMap: Affine = [sx, 0, -crop.x * sx, 0, sy, -crop.y * sy];
-  const draw = (video: HTMLVideoElement, stabilize: Affine) => {
-    const m = compose(stabilize, cropMap);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, outW, outH);
-    ctx.setTransform(m[0], m[3], m[1], m[4], m[2], m[5]);
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(video, 0, 0, meta.width, meta.height);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-  };
-  return { outW, outH, out, draw };
 }
 
 export interface ExportResult {
@@ -116,13 +93,14 @@ async function pickAvcCodec(w: number, h: number, fps: number) {
 
 async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
   const { video, meta, result, crop, fileBuffer, onProgress, signal } = params;
+  const grade = params.grade ?? NEUTRAL;
   const fps = meta.fps;
   const dt = 1 / fps;
   const start = Math.max(result.start, params.start ?? result.start);
   const end = Math.min(result.end, params.end ?? result.end);
   const totalFrames = Math.max(1, Math.round((end - start) * fps) + 1);
 
-  const renderer = makeFrameRenderer(meta, crop);
+  const renderer = makeComposite(meta, crop);
   const w = renderer.outW;
   const h = renderer.outH;
 
@@ -182,9 +160,9 @@ async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
     const t = Math.min(end, start + i * dt);
     await seekTo(video, t);
     const stab = constrainToCrop(trackAt(result, t).stabilize, crop, meta.width, meta.height);
-    renderer.draw(video, stab);
+    renderer.draw(video, stab, grade, i);
 
-    const frame = new VideoFrame(renderer.out, {
+    const frame = new VideoFrame(renderer.canvas, {
       timestamp: Math.round(i * dt * 1e6),
       duration: Math.round(dt * 1e6),
     });
@@ -354,10 +332,11 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
   const start = Math.max(result.start, params.start ?? result.start);
   const end = Math.min(result.end, params.end ?? result.end);
 
-  const renderer = makeFrameRenderer(meta, crop);
+  const grade = params.grade ?? NEUTRAL;
+  const renderer = makeComposite(meta, crop);
   const w = renderer.outW;
   const h = renderer.outH;
-  const canvas = renderer.out;
+  const canvas = renderer.canvas;
 
   const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
     ? 'video/mp4;codecs=avc1'
@@ -410,7 +389,7 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
         return;
       }
       const stab = constrainToCrop(trackAt(result, video.currentTime).stabilize, crop, meta.width, meta.height);
-      renderer.draw(video, stab);
+      renderer.draw(video, stab, grade, video.currentTime * meta.fps);
       onProgress?.(
         Math.min(0.99, (video.currentTime - start) / (end - start)),
         'Enregistrement'

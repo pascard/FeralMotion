@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Viewer, ViewerHandle, ViewerProviders, OverlayKind } from './ui/Viewer';
 import { Timeline } from './ui/Timeline';
 import { loadOpenCV, getCV } from './engine/opencv';
-import { AnalysisResult, analyzeStabilization, recomputeTracks, trackAt } from './engine/analysis';
+import { AnalysisResult, analyzeStabilization, recomputeTracks, trackAt, identityResult } from './engine/analysis';
+import { ColorEditor } from './ui/ColorEditor';
+import { GradeParams, NEUTRAL } from './color/types';
 import { exportStabilized, canUseWebCodecs } from './engine/exporter';
 import { seekTo, probeVideo, waitForVideoReady } from './engine/videoFrames';
 import { computeSafeRect, fitAspect, moveRect, resizeRect, lerpRect, FORMATS } from './engine/crop';
@@ -51,6 +53,8 @@ export default function App() {
   const [exportUrl, setExportUrl] = useState<string>();
   const [showRaw, setShowRaw] = useState(false);
   const [error, setError] = useState<string>();
+  const [grade, setGrade] = useState<GradeParams>(NEUTRAL);
+  const [colorMode, setColorMode] = useState(false);
   const [nativeFs, setNativeFs] = useState(false);
   const [immersive, setImmersive] = useState(false); // CSS fallback (iOS, no FS API)
   // iOS Safari/Chrome (WebKit) can't fullscreen arbitrary elements
@@ -94,10 +98,12 @@ export default function App() {
   const metaRef = useRef<VideoMeta | undefined>(undefined);
   const expandRef = useRef(expand);
   const stepRef = useRef(step);
+  const colorModeRef = useRef(colorMode);
   const trimRef = useRef(trim);
   metaRef.current = meta;
   expandRef.current = expand;
   stepRef.current = step;
+  colorModeRef.current = colorMode;
   const showRawRef = useRef(showRaw);
   const liveTrackRef = useRef<{ points: Point[]; ok: boolean; trails: Point[][]; cloud: Point[] }>({
     points: [],
@@ -175,7 +181,11 @@ export default function App() {
       }
       // loop within the trimmed range only during preview (not during export,
       // which drives the element itself)
-      if (!videoEl.paused && (stepRef.current === 'edit' || stepRef.current === 'ready')) {
+      if (
+        !videoEl.paused &&
+        !colorModeRef.current &&
+        (stepRef.current === 'edit' || stepRef.current === 'ready')
+      ) {
         const { start, end } = trimRef.current;
         if (videoEl.currentTime >= end - 0.03) videoEl.currentTime = start;
       }
@@ -268,6 +278,19 @@ export default function App() {
     onSeek(trim.start);
     setStep('points');
   }, [videoEl, trim.start, onSeek]);
+
+  const openColor = useCallback(() => {
+    if (!videoEl) return;
+    videoEl.pause();
+    setPlaying(false);
+    setColorMode(true);
+  }, [videoEl]);
+
+  const closeColor = useCallback(() => {
+    videoEl?.pause();
+    setPlaying(false);
+    setColorMode(false);
+  }, [videoEl]);
 
   const defaultRadius = useMemo(() => {
     if (!meta) return 40;
@@ -451,9 +474,15 @@ export default function App() {
   }, [videoEl, meta, mode, refPoints, zoneRadii, trim, onSeek, smoothing, precision, refitCrop, formatId, stopVideo]);
 
   const runExport = useCallback(async () => {
-    if (!videoEl || !meta || !analysisRef.current) return;
+    if (!videoEl || !meta) return;
+    // stabilization context (identity if the clip wasn't stabilized = color-only)
+    const stabResult = analysisRef.current ?? identityResult(meta);
+    const exportCrop = cropRectRef.current ?? { x: 0, y: 0, w: meta.width, h: meta.height };
+    const exportStart = analysisRef.current ? trim.start : 0;
+    const exportEnd = analysisRef.current ? trim.end : meta.duration;
     videoEl.pause();
     setPlaying(false);
+    setColorMode(false);
     setExportUrl(undefined);
     setStep('export');
     setExportState({ ratio: 0, stage: 'Préparation' });
@@ -474,10 +503,11 @@ export default function App() {
       const res = await exportStabilized({
         video: videoEl,
         meta,
-        result: analysisRef.current,
-        crop: cropRectRef.current ?? { x: 0, y: 0, w: meta.width, h: meta.height },
-        start: trim.start,
-        end: trim.end,
+        result: stabResult,
+        crop: exportCrop,
+        grade,
+        start: exportStart,
+        end: exportEnd,
         fileBuffer,
         onProgress: (ratio, stage) => setExportState({ ratio, stage }),
         signal: abort.signal,
@@ -491,9 +521,9 @@ export default function App() {
       if ((e as any)?.name !== 'AbortError') {
         setError('Échec de l’export : ' + (e as Error).message);
       }
-      setStep('edit');
+      setStep(analysisRef.current ? 'edit' : 'ready');
     }
-  }, [videoEl, meta, file, trim]);
+  }, [videoEl, meta, file, trim, grade]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -520,6 +550,8 @@ export default function App() {
     setZoneRadii([]);
     setExpand(0);
     setCropRect(null);
+    setGrade(NEUTRAL);
+    setColorMode(false);
     setThumbs([]);
     setExportUrl(undefined);
     setExportState(null);
@@ -592,7 +624,23 @@ export default function App() {
           </div>
         )}
 
-        {meta && videoEl && step !== 'import' && (
+        {meta && videoEl && step !== 'import' && colorMode && (
+          <ColorEditor
+            video={videoEl}
+            home={homeRef.current}
+            meta={meta}
+            analysis={analysisRef.current}
+            crop={cropRectRef.current ?? { x: 0, y: 0, w: meta.width, h: meta.height }}
+            start={analysisRef.current ? trim.start : 0}
+            end={analysisRef.current ? trim.end : meta.duration}
+            grade={grade}
+            onGradeChange={setGrade}
+            onBack={closeColor}
+            onExport={runExport}
+          />
+        )}
+
+        {meta && videoEl && step !== 'import' && !colorMode && (
           <>
             <div className="viewer-wrap">
               {step === 'export' && exportUrl ? (
@@ -623,6 +671,7 @@ export default function App() {
                   onCropMove={step === 'edit' ? onCropMove : undefined}
                   onCropResize={step === 'edit' ? onCropResize : undefined}
                   cropView={step === 'export' ? cropRect : null}
+                  grade={grade}
                 />
               )}
 
@@ -695,6 +744,7 @@ export default function App() {
               onTogglePlay={togglePlay}
               onChangeMode={changeMode}
               onStartStabilize={startStabilize}
+              onOpenColor={openColor}
               onAnalyze={runAnalysis}
               onExport={runExport}
               onSelectFormat={selectFormat}
@@ -784,6 +834,7 @@ interface ControlsProps {
   onTogglePlay: () => void;
   onChangeMode: (m: TrackMode) => void;
   onStartStabilize: () => void;
+  onOpenColor: () => void;
   onAnalyze: () => void;
   onExport: () => void;
   onSelectFormat: (id: string) => void;
@@ -805,6 +856,9 @@ function Controls(p: ControlsProps) {
         </button>
         <button className="primary grow" onClick={p.onStartStabilize}>
           ✦ Stabiliser
+        </button>
+        <button className="primary grow color-btn" onClick={p.onOpenColor}>
+          🎨 Color
         </button>
       </div>
     );
@@ -921,7 +975,7 @@ function Controls(p: ControlsProps) {
           Glisse le cadre · agrandis-le au-delà de la zone sûre (cadre orange) pour rogner moins,
           la stabilisation viendra buter sur les bords. Réduis la durée ci-dessus.
         </p>
-        <div className="controls">
+        <div className="controls wrap">
           <button className="round" onClick={p.onTogglePlay}>
             {p.playing ? '❚❚' : '►'}
           </button>
@@ -930,6 +984,9 @@ function Controls(p: ControlsProps) {
           </button>
           <button className="ghost" onClick={p.onBackToPoints}>
             ↺ Points
+          </button>
+          <button className="ghost color-btn" onClick={p.onOpenColor}>
+            🎨 Color
           </button>
           <button className="primary grow" onClick={p.onExport}>
             Exporter

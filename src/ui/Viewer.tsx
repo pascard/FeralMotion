@@ -2,6 +2,8 @@ import { useCallback, useEffect, useImperativeHandle, useRef, forwardRef } from 
 import { drawTrackingOverlay, drawPins, drawExportFrame } from '../engine/renderer';
 import { compose } from '../engine/stabilizer';
 import { Affine, IDENTITY, Point, Rect, TrackMode, VideoMeta } from '../engine/types';
+import { gradeToCssFilter } from '../color/cssFilter';
+import { GradeParams, NEUTRAL } from '../color/types';
 
 export interface ViewerHandle {
   resetView: () => void;
@@ -40,6 +42,9 @@ interface Props {
   /** when set, the view is zoomed to this crop rect (final cropped result,
    * filling the container) and overlays are hidden */
   cropView?: Rect | null;
+  /** color grade — shown here as a CSS-filter approximation so the look is
+   * visible in every preview (faithful render is in the Color editor/export) */
+  grade?: GradeParams;
 }
 
 const DRAG_THRESHOLD = 6;
@@ -60,6 +65,7 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer(
     onCropMove,
     onCropResize,
     cropView,
+    grade,
   },
   ref
 ) {
@@ -117,6 +123,14 @@ export const Viewer = forwardRef<ViewerHandle, Props>(function Viewer(
     video.style.width = `${meta.width}px`;
     video.style.height = `${meta.height}px`;
   }, [video, meta.width, meta.height]);
+
+  /* apply the grade as a CSS filter so the look shows in this preview too */
+  useEffect(() => {
+    video.style.filter = gradeToCssFilter(grade ?? NEUTRAL);
+    return () => {
+      video.style.filter = 'none';
+    };
+  }, [video, grade]);
 
   const layout = useCallback(() => {
     const rect = containerRef.current!.getBoundingClientRect();
