@@ -560,7 +560,7 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand">
-          <span className="brand-dot" /> StabiCam
+          <span className="brand-dot" /> FeralMotion
         </div>
         <div className="topbar-actions">
           {meta && step !== 'import' && (
@@ -946,7 +946,7 @@ function Controls(p: ControlsProps) {
           <>
             <p className="tip success">✓ Vidéo stabilisée prête.</p>
             <div className="controls">
-              <a className="primary grow center" href={p.exportUrl} download="stabicam.mp4">
+              <a className="primary grow center" href={p.exportUrl} download="feralmotion.mp4">
                 Télécharger
               </a>
               <button className="ghost" onClick={p.onCancel}>

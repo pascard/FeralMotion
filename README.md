@@ -1,4 +1,4 @@
-# StabiCam — stabilisation vidéo dans le navigateur
+# FeralMotion — stabilisation vidéo dans le navigateur
 
 Prototype web (mobile-first) de stabilisation vidéo par suivi de **1 ou 2 points**.
 Import → placement des points (zoom/pinch) → analyse (tracking visible) → aperçu
