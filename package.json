@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Tom Pascard (https://github.com/pascard/FeralMotion)",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

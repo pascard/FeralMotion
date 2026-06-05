@@ -52,3 +52,19 @@ progression dans `src/engine/opencv.ts`).
   ~10–30 s pour un clip de quelques secondes.
 - Le décodage HEVC dépend du support matériel/navigateur ; H.264 est le plus sûr.
 - Pas (encore) de re-tracking automatique après occlusion longue d'un point.
+
+## Licence
+
+© 2026 Tom Pascard — https://github.com/pascard/FeralMotion
+
+FeralMotion est distribué sous la **PolyForm Noncommercial License 1.0.0**
+(voir [LICENSE](./LICENSE)).
+
+- ✅ **Usage non-commercial autorisé** (perso, étude, recherche, éducation, assos…),
+  y compris modification et redistribution.
+- ✅ **Crédit obligatoire** : tu dois conserver l'avis de copyright et la mention
+  `Required Notice` qui pointe vers ce dépôt GitHub.
+- ❌ **Usage commercial interdit** sans licence séparée — contacte l'auteur.
+
+Les composants tiers (React, mp4-muxer, mp4box.js, OpenCV) restent sous leurs
+propres licences permissives ; voir [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
