@@ -65,7 +65,7 @@ export function Timeline({ duration, start, end, current, thumbs, onTrim, onSeek
     <div className="timeline">
       <div className="timeline-times">
         <span>{fmt(start)}</span>
-        <span className="timeline-dur">{fmt(end - start)} sél.</span>
+        <span className="timeline-dur">{fmt(end - start)} sel.</span>
         <span>{fmt(end)}</span>
       </div>
       <div

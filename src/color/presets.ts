@@ -9,10 +9,10 @@ export interface Look {
 const make = (p: Partial<GradeParams>): GradeParams => ({ ...NEUTRAL, ...p });
 
 export const LOOKS: Look[] = [
-  { id: 'neutral', label: 'Neutre', params: make({}) },
+  { id: 'neutral', label: 'Neutral', params: make({}) },
   {
     id: 'cine-warm',
-    label: 'Ciné chaud',
+    label: 'Warm cinema',
     params: make({
       temp: 0.18,
       contrast: 0.18,
@@ -40,7 +40,7 @@ export const LOOKS: Look[] = [
   },
   {
     id: 'film',
-    label: 'Argentique',
+    label: 'Film',
     params: make({
       temp: 0.08,
       contrast: 0.1,

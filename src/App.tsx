@@ -465,7 +465,7 @@ export default function App() {
     } catch (e) {
       console.error('[runAnalysis] FAILED', e);
       if ((e as any)?.name !== 'AbortError') {
-        setError('Échec de l’analyse : ' + (e as Error).message);
+        setError('Tracking failed: ' + (e as Error).message);
       }
       setStep('points');
     } finally {
@@ -485,7 +485,7 @@ export default function App() {
     setColorMode(false);
     setExportUrl(undefined);
     setStep('export');
-    setExportState({ ratio: 0, stage: 'Préparation' });
+    setExportState({ ratio: 0, stage: 'Preparing' });
     const abort = new AbortController();
     abortRef.current = abort;
     try {
@@ -516,10 +516,10 @@ export default function App() {
         if (old) URL.revokeObjectURL(old);
         return URL.createObjectURL(res.blob);
       });
-      setExportState({ ratio: 1, stage: 'Terminé' });
+      setExportState({ ratio: 1, stage: 'Done' });
     } catch (e) {
       if ((e as any)?.name !== 'AbortError') {
-        setError('Échec de l’export : ' + (e as Error).message);
+        setError('Export failed: ' + (e as Error).message);
       }
       setStep(analysisRef.current ? 'edit' : 'ready');
     }
@@ -597,10 +597,10 @@ export default function App() {
         <div className="topbar-actions">
           {meta && step !== 'import' && (
             <button className="ghost" onClick={reset}>
-              Nouvelle vidéo
+              New video
             </button>
           )}
-          <button className="icon-btn" onClick={toggleFullscreen} aria-label="Plein écran">
+          <button className="icon-btn" onClick={toggleFullscreen} aria-label="Fullscreen">
             {isFullscreen ? (
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
@@ -620,7 +620,7 @@ export default function App() {
         {step === 'loading' && (
           <div className="loader-screen">
             <div className="spinner" />
-            <p>Préparation de la vidéo…</p>
+            <p>Preparing video…</p>
           </div>
         )}
 
@@ -679,8 +679,8 @@ export default function App() {
                 <div className="analyze-badge">
                   <span className="pulse" />{' '}
                   {cvProgress !== null
-                    ? `Chargement du moteur… ${Math.round(cvProgress * 100)}%`
-                    : `Suivi en cours… ${Math.round(analysisProgress * 100)}%`}
+                    ? `Loading engine… ${Math.round(cvProgress * 100)}%`
+                    : `Tracking… ${Math.round(analysisProgress * 100)}%`}
                 </div>
               )}
               {step === 'edit' && (
@@ -690,7 +690,7 @@ export default function App() {
                   onPointerUp={() => setShowRaw(false)}
                   onPointerLeave={() => setShowRaw(false)}
                 >
-                  {showRaw ? 'Original' : 'Maintenir : comparer'}
+                  {showRaw ? 'Original' : 'Hold to compare'}
                 </button>
               )}
               {step === 'export' && !exportUrl && (
@@ -796,12 +796,12 @@ function ImportScreen({ onFile, error }: { onFile: (f: File) => void; error?: st
     >
       <div className="import-card">
         <div className="import-icon">🎬</div>
-        <h1>Stabilise ta vidéo</h1>
-        <p>1 ou 2 points de suivi. Idéal pour une story bien stable.</p>
+        <h1>Stabilize your video</h1>
+        <p>1 or 2 tracking points. Perfect for a rock-steady story.</p>
         <button className="primary big" onClick={() => inputRef.current?.click()}>
-          Importer une vidéo
+          Import a video
         </button>
-        <span className="hint">ou glisse-dépose un fichier ici</span>
+        <span className="hint">or drag & drop a file here</span>
         {error && <div className="error-toast">{error}</div>}
         <input
           ref={inputRef}
@@ -855,7 +855,7 @@ function Controls(p: ControlsProps) {
           {p.playing ? '❚❚' : '►'}
         </button>
         <button className="primary grow" onClick={p.onStartStabilize}>
-          ✦ Stabiliser
+          ✦ Stabilize
         </button>
         <button className="primary grow color-btn" onClick={p.onOpenColor}>
           🎨 Color
@@ -874,11 +874,11 @@ function Controls(p: ControlsProps) {
           </button>
           <button className={p.mode === 'two' ? 'on' : ''} onClick={() => p.onChangeMode('two')}>
             2 zones
-            <small>+ rotation / échelle</small>
+            <small>+ rotation / scale</small>
           </button>
         </div>
         <div className="format-row">
-          <span className="row-label">Puissance</span>
+          <span className="row-label">Power</span>
           <div className="format-chips">
             {PRECISIONS.map((pr) => (
               <button
@@ -894,15 +894,15 @@ function Controls(p: ControlsProps) {
         </div>
         <p className="tip">
           {p.placed < p.need
-            ? `Touche la vidéo pour placer ${p.need === 2 ? `la zone ${p.placed + 1}/2` : 'la zone'} · pince pour zoomer`
-            : 'Glisse le centre pour déplacer, le bord du cercle pour régler la zone d’analyse. Puis analyse.'}
+            ? `Tap the video to place ${p.need === 2 ? `zone ${p.placed + 1}/2` : 'the zone'} · pinch to zoom`
+            : 'Drag the center to move, the circle edge to set the analysis area. Then analyze.'}
         </p>
         <div className="controls">
           <button className="ghost" onClick={p.onReset}>
-            Annuler
+            Cancel
           </button>
           <button className="primary grow" disabled={p.placed < p.need} onClick={p.onAnalyze}>
-            Analyser le suivi →
+            Analyze tracking →
           </button>
         </div>
       </div>
@@ -913,12 +913,12 @@ function Controls(p: ControlsProps) {
     return (
       <div className="controls column">
         {p.cvProgress !== null ? (
-          <p className="tip">Chargement du moteur de tracking… {Math.round(p.cvProgress * 100)}%</p>
+          <p className="tip">Loading tracking engine… {Math.round(p.cvProgress * 100)}%</p>
         ) : (
-          <Progress ratio={p.analysisProgress} label="Analyse du mouvement" />
+          <Progress ratio={p.analysisProgress} label="Analyzing motion" />
         )}
         <button className="ghost" onClick={p.onCancel}>
-          Annuler
+          Cancel
         </button>
       </div>
     );
@@ -928,7 +928,7 @@ function Controls(p: ControlsProps) {
     return (
       <div className="controls column">
         <div className="slider-row">
-          <span>Lissage</span>
+          <span>Smoothing</span>
           <input
             type="range"
             min={0}
@@ -938,7 +938,7 @@ function Controls(p: ControlsProps) {
             onChange={(e) => p.onSmoothing(parseInt(e.target.value, 10))}
           />
           <span className="mono">
-            {p.smoothing === 0 ? 'Figé' : p.smoothing >= 22 ? 'Max' : p.smoothing >= 12 ? 'Fort' : `±${p.smoothing}`}
+            {p.smoothing === 0 ? 'Locked' : p.smoothing >= 22 ? 'Max' : p.smoothing >= 12 ? 'Strong' : `±${p.smoothing}`}
           </span>
         </div>
         <div className="format-row">
@@ -960,7 +960,7 @@ function Controls(p: ControlsProps) {
           )}
         </div>
         <div className="slider-row">
-          <span>Cadrage</span>
+          <span>Framing</span>
           <input
             type="range"
             min={0}
@@ -969,18 +969,18 @@ function Controls(p: ControlsProps) {
             value={p.expand}
             onChange={(e) => p.onExpand(parseFloat(e.target.value))}
           />
-          <span className="mono">{p.expand <= 0.01 ? 'Stable' : p.expand >= 0.99 ? 'Plein' : `${Math.round(p.expand * 100)}%`}</span>
+          <span className="mono">{p.expand <= 0.01 ? 'Stable' : p.expand >= 0.99 ? 'Full' : `${Math.round(p.expand * 100)}%`}</span>
         </div>
         <p className="tip">
-          Glisse le cadre · agrandis-le au-delà de la zone sûre (cadre orange) pour rogner moins,
-          la stabilisation viendra buter sur les bords. Réduis la durée ci-dessus.
+          Drag the frame · enlarge it past the safe area (orange frame) to crop less;
+          stabilization will hit the borders. Shorten the duration above.
         </p>
         <div className="controls wrap">
           <button className="round" onClick={p.onTogglePlay}>
             {p.playing ? '❚❚' : '►'}
           </button>
           <button className="ghost" onClick={p.onBackToLength}>
-            ↤ Durée
+            ↤ Duration
           </button>
           <button className="ghost" onClick={p.onBackToPoints}>
             ↺ Points
@@ -989,7 +989,7 @@ function Controls(p: ControlsProps) {
             🎨 Color
           </button>
           <button className="primary grow" onClick={p.onExport}>
-            Exporter
+            Export
           </button>
         </div>
       </div>
@@ -1001,13 +1001,13 @@ function Controls(p: ControlsProps) {
       <div className="controls column">
         {p.exportUrl ? (
           <>
-            <p className="tip success">✓ Vidéo stabilisée prête.</p>
+            <p className="tip success">✓ Stabilized video ready.</p>
             <div className="controls">
               <a className="primary grow center" href={p.exportUrl} download="feralmotion.mp4">
-                Télécharger
+                Download
               </a>
               <button className="ghost" onClick={p.onCancel}>
-                Retour
+                Back
               </button>
             </div>
           </>
@@ -1020,7 +1020,7 @@ function Controls(p: ControlsProps) {
               }`}
             />
             <button className="ghost" onClick={p.onCancel}>
-              Annuler
+              Cancel
             </button>
           </>
         )}

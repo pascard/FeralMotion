@@ -16,9 +16,9 @@ export interface StabPreset {
 }
 
 export const PRECISIONS: StabPreset[] = [
-  { id: 'fast', label: 'Rapide', hint: 'léger, idéal mobile', perZone: 8, radius: 26, winSize: 21, maxLevel: 2 },
-  { id: 'balanced', label: 'Équilibré', hint: 'recommandé', perZone: 20, radius: 40, winSize: 27, maxLevel: 3 },
-  { id: 'precise', label: 'Précis', hint: 'plus lent, plus stable', perZone: 44, radius: 56, winSize: 31, maxLevel: 4 },
+  { id: 'fast', label: 'Fast', hint: 'light, ideal on mobile', perZone: 8, radius: 26, winSize: 21, maxLevel: 2 },
+  { id: 'balanced', label: 'Balanced', hint: 'recommended', perZone: 20, radius: 40, winSize: 27, maxLevel: 3 },
+  { id: 'precise', label: 'Precise', hint: 'slower, steadier', perZone: 44, radius: 56, winSize: 31, maxLevel: 4 },
 ];
 
 export const DEFAULT_PRECISION = 'balanced';

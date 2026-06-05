@@ -23,12 +23,12 @@ interface Props {
 }
 
 const SLIDERS: { key: keyof GradeParams; label: string; min: number; max: number; step: number }[] = [
-  { key: 'exposure', label: 'Exposition', min: -2, max: 2, step: 0.01 },
-  { key: 'contrast', label: 'Contraste', min: -1, max: 1, step: 0.01 },
-  { key: 'temp', label: 'Température', min: -1, max: 1, step: 0.01 },
-  { key: 'tint', label: 'Teinte', min: -1, max: 1, step: 0.01 },
-  { key: 'shadows', label: 'Ombres', min: -1, max: 1, step: 0.01 },
-  { key: 'highlights', label: 'Hautes lum.', min: -1, max: 1, step: 0.01 },
+  { key: 'exposure', label: 'Exposure', min: -2, max: 2, step: 0.01 },
+  { key: 'contrast', label: 'Contrast', min: -1, max: 1, step: 0.01 },
+  { key: 'temp', label: 'Temperature', min: -1, max: 1, step: 0.01 },
+  { key: 'tint', label: 'Tint', min: -1, max: 1, step: 0.01 },
+  { key: 'shadows', label: 'Shadows', min: -1, max: 1, step: 0.01 },
+  { key: 'highlights', label: 'Highlights', min: -1, max: 1, step: 0.01 },
   { key: 'saturation', label: 'Saturation', min: -1, max: 1, step: 0.01 },
   { key: 'vibrance', label: 'Vibrance', min: -1, max: 1, step: 0.01 },
   { key: 'tealOrange', label: 'Teal & Orange', min: 0, max: 1, step: 0.01 },
@@ -38,14 +38,14 @@ const SLIDERS: { key: keyof GradeParams; label: string; min: number; max: number
 ];
 
 const TONEMAPS = [
-  { v: ToneMap.None, label: 'Aucun' },
-  { v: ToneMap.Reinhard, label: 'Doux' },
-  { v: ToneMap.ACES, label: 'Filmique' },
-  { v: ToneMap.Hable, label: 'Argentique' },
+  { v: ToneMap.None, label: 'None' },
+  { v: ToneMap.Reinhard, label: 'Soft' },
+  { v: ToneMap.ACES, label: 'Filmic' },
+  { v: ToneMap.Hable, label: 'Film' },
 ];
 
 const RATIOS = [
-  { v: 0, label: 'Plein' },
+  { v: 0, label: 'Full' },
   { v: 2.39, label: '2.39' },
   { v: 1.85, label: '1.85' },
   { v: 16 / 9, label: '16:9' },
@@ -207,7 +207,7 @@ export function ColorEditor({
         </div>
 
         <button className="ghost" onClick={auto}>
-          ✨ Auto exposition + balance
+          ✨ Auto exposure + balance
         </button>
 
         <div className="color-sliders">
@@ -261,10 +261,10 @@ export function ColorEditor({
             {playing ? '❚❚' : '►'}
           </button>
           <button className="ghost" onClick={onBack}>
-            ↤ Retour
+            ↤ Back
           </button>
           <button className="primary grow" onClick={onExport}>
-            Exporter
+            Export
           </button>
         </div>
       </div>

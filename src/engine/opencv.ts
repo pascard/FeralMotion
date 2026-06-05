@@ -40,7 +40,7 @@ let cachedBlobUrl: string | null = null;
 
 async function download(onProgress?: (ratio: number) => void) {
   const res = await fetch(OPENCV_URL);
-  if (!res.ok) throw new Error(`Téléchargement OpenCV échoué (${res.status}).`);
+  if (!res.ok) throw new Error(`OpenCV download failed (${res.status}).`);
   const total = Number(res.headers.get('content-length')) || 0;
   const reader = res.body!.getReader();
   const chunks: Uint8Array[] = [];
@@ -66,7 +66,7 @@ function injectScript(): Promise<void> {
       console.log('[opencv] script evaluated');
       resolve();
     };
-    script.onerror = () => reject(new Error('Exécution d’OpenCV.js impossible.'));
+    script.onerror = () => reject(new Error('Could not run OpenCV.js.'));
     document.head.appendChild(script);
   });
 }
@@ -76,7 +76,7 @@ function injectScript(): Promise<void> {
  * promise with a primitive, never the module. */
 function resolveModule(): Promise<void> {
   const cv = window.cv;
-  if (!cv) return Promise.reject(new Error('OpenCV introuvable après chargement.'));
+  if (!cv) return Promise.reject(new Error('OpenCV not found after loading.'));
   if (typeof cv.then !== 'function' || cv.Mat) return Promise.resolve();
   return new Promise<void>((resolve) => {
     let settled = false;
@@ -113,7 +113,7 @@ function waitForApi(timeoutMs = 30000): Promise<void> {
       if (window.cv && window.cv.Mat) finish();
       else if (Date.now() - t0 > timeoutMs) {
         clearInterval(poll);
-        reject(new Error('Initialisation d’OpenCV expirée (30 s).'));
+        reject(new Error('OpenCV initialization timed out (30s).'));
       }
     }, 50);
   });

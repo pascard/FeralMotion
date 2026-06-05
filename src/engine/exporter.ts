@@ -39,8 +39,8 @@ const AVC_CANDIDATES = [
 ];
 
 function bitrateFor(w: number, h: number, fps: number): number {
-  const bpp = 0.28; // bits per pixel·frame -> near-source quality
-  return Math.min(60_000_000, Math.max(10_000_000, Math.round(w * h * fps * bpp)));
+  const bpp = 0.3; // bits per pixel·frame -> near-source, clean quality
+  return Math.min(80_000_000, Math.max(12_000_000, Math.round(w * h * fps * bpp)));
 }
 
 export function canUseWebCodecs(): boolean {
@@ -169,7 +169,7 @@ async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
     });
     encoder.encode(frame, { keyFrame: i % Math.round(fps) === 0 });
     frame.close();
-    onProgress?.((i / totalFrames) * 0.9, 'Encodage vidéo');
+    onProgress?.((i / totalFrames) * 0.9, 'Encoding video');
     // keep the encoder queue bounded so memory stays sane on mobile
     if (encoder.encodeQueueSize > 8) await waitQueue(encoder);
   }
@@ -178,21 +178,21 @@ async function exportWebCodecs(params: ExportParams): Promise<ExportResult> {
   encoder.close();
 
   if (copied) {
-    onProgress?.(0.92, 'Audio (copie)');
+    onProgress?.(0.92, 'Audio (copy)');
     const n = muxCopiedAudio(copied, muxer, start, end, signal);
     console.log('[export] copied AAC samples muxed:', n);
     if (n === 0 && wantAudio) throw new Error('AUDIO_FALLBACK');
   } else if (plan) {
-    onProgress?.(0.92, 'Encodage audio');
+    onProgress?.(0.92, 'Encoding audio');
     const n = await encodeAudioPlan(plan, muxer, signal);
     console.log('[export] audio chunks muxed:', n);
     if (n === 0 && wantAudio) throw new Error('AUDIO_FALLBACK');
   }
 
-  onProgress?.(0.98, 'Finalisation');
+  onProgress?.(0.98, 'Finalizing');
   muxer.finalize();
   const { buffer } = muxer.target as ArrayBufferTarget;
-  onProgress?.(1, 'Terminé');
+  onProgress?.(1, 'Done');
   return {
     blob: new Blob([buffer], { type: 'video/mp4' }),
     ext: 'mp4',
@@ -397,7 +397,7 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
       renderer.draw(video, stab, grade, video.currentTime * meta.fps);
       onProgress?.(
         Math.min(0.99, (video.currentTime - start) / (end - start)),
-        'Enregistrement'
+        'Recording'
       );
       if (typeof anyVid.requestVideoFrameCallback === 'function') {
         anyVid.requestVideoFrameCallback(draw);
@@ -415,7 +415,7 @@ async function exportMediaRecorder(params: ExportParams): Promise<ExportResult> 
   video.pause();
   recorder.stop();
   const blob = await done;
-  onProgress?.(1, 'Terminé');
+  onProgress?.(1, 'Done');
   return { blob, ext, mime, engine: 'mediarecorder' };
   } finally {
     renderer.dispose(); // free the WebGL2 context (scarce — never leak)

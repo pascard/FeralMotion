@@ -20,10 +20,10 @@ export function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 20000): P
     const onMeta = () => {
       if (video.videoWidth) finish();
     };
-    const onErr = () => finish(new Error('Impossible de charger cette vidéo.'));
+    const onErr = () => finish(new Error('Could not load this video.'));
     const timer = setTimeout(() => {
       if (video.videoWidth) finish();
-      else finish(new Error('Chargement de la vidéo expiré.'));
+      else finish(new Error('Video loading timed out.'));
     }, timeoutMs);
     video.addEventListener('loadedmetadata', onMeta);
     video.addEventListener('loadeddata', onMeta);
@@ -35,6 +35,16 @@ export function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 20000): P
       /* ignore */
     }
   });
+}
+
+/** Snap a measured fps to the nearest standard rate so the export grid lines up
+ * exactly with the source frames (no judder/drift). Keeps the FRACTIONAL value
+ * for NTSC rates (29.97, 23.976, 59.94) — rounding those to integers is what
+ * causes duplicated/skipped frames and slow A/V drift. */
+function snapFps(fps: number): number {
+  const standard = [23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60];
+  for (const s of standard) if (Math.abs(fps - s) <= 0.25) return s;
+  return Math.min(60, Math.max(12, Math.round(fps * 1000) / 1000));
 }
 
 /** Estimate fps by sampling frame callbacks; falls back to 30. */
@@ -54,7 +64,7 @@ export async function detectFps(video: HTMLVideoElement): Promise<number> {
       } catch {
         /* ignore */
       }
-      resolve(Math.min(60, Math.max(12, Math.round(fps))));
+      resolve(snapFps(fps));
     };
     const cb = (_now: number, meta: any) => {
       times.push(meta.mediaTime);
